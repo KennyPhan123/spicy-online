@@ -365,8 +365,12 @@ function handleServerMessage(data) {
             state.gameState.stackCount = data.stackCount;
             state.gameState.stack = data.stack || [];
             if (data.players) state.gameState.players = data.players;
+            if (data.lastActivePlayerId !== undefined) state.gameState.lastActivePlayerId = data.lastActivePlayerId;
+            if (data.stackCardFlips) state.stackCardFlips = data.stackCardFlips;
             renderStack();
             renderOtherPlayers();
+            // Also re-render my hand to show active glow if it's me
+            renderMyHand();
             break;
 
         case 'pointsUpdated':
