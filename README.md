@@ -11,11 +11,12 @@ Spicy is a hot bluffing card game for 2-6 players. This online version allows pl
 - Real-time multiplayer gameplay using WebSockets
 - Room-based system with 4-letter room codes
 - Support for 2-6 players per game
-- Spice It Up mode for advanced gameplay
+- Spice It Up mode toggle (visual only - variant rules not yet implemented)
 - Interactive drag-and-drop card mechanics
 - Pan and zoom controls for optimal viewing
 - Trophy system with 10-point scoring
 - World's End card mechanic
+- Card flip feature for challenges
 - Responsive design for desktop and mobile
 
 ## Tech Stack
@@ -76,10 +77,11 @@ npx partykit deploy
 
 1. Create a new game or join an existing room with a 4-letter code
 2. Wait for at least 2 players to join
-3. The host can enable "Spice It Up" mode for advanced rules
+3. The host can optionally toggle "Spice It Up" mode (note: variant rules are not yet implemented - this only displays a random Spice It Up card)
 4. Start the game and play cards by dragging them to the spicy stack
-5. Challenge other players or collect trophies to win
-6. Score points by collecting cards (1 point each) and trophies (10 points each)
+5. Double-click/tap cards in the stack to flip and reveal them (for challenges)
+6. Challenge other players or collect trophies to win
+7. Score points by collecting cards (1 point each) and trophies (10 points each)
 
 ## Game Controls
 
