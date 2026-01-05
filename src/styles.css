@@ -327,7 +327,6 @@ img {
     left: 50%;
     top: 50%;
     transform-origin: center center;
-    will-change: transform;
 }
 
 /* === GAME AREAS === */

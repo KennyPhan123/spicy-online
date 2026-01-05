@@ -720,7 +720,7 @@ function setupPanZoom() {
 
     canvas.addEventListener('wheel', (e) => {
         e.preventDefault();
-        const delta = e.deltaY > 0 ? 0.95 : 1.05;
+        const delta = e.deltaY > 0 ? 0.85 : 1.15;
         state.zoom = Math.min(Math.max(state.zoom * delta, 0.7), 3.0);
         updateWorldTransform();
     }, { passive: false });
