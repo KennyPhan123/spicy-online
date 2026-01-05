@@ -95,6 +95,8 @@ export default class SpicyServer {
 
             // Game areas
             spicyStack: [], // Center pile where cards are played (synced to all clients)
+            stackCardFlips: {}, // Track flipped state of stack cards
+            trophyFlips: {}, // Track flipped state of trophies
             trophies: [
                 { id: 'trophy1', available: true, ownerId: null },
                 { id: 'trophy2', available: true, ownerId: null },
@@ -144,6 +146,12 @@ export default class SpicyServer {
                     break;
                 case 'takeTrophy':
                     this.handleTakeTrophy(data, sender);
+                    break;
+                case 'flipStackCard':
+                    this.handleFlipStackCard(data, sender);
+                    break;
+                case 'flipTrophy':
+                    this.handleFlipTrophy(data, sender);
                     break;
                 case 'reset':
                     this.handleReset(sender);
@@ -490,6 +498,36 @@ export default class SpicyServer {
         });
     }
 
+    handleFlipStackCard(data, sender) {
+        if (!this.gameState.gameStarted) return;
+
+        const cardId = data.cardId;
+        // Toggle state
+        this.gameState.stackCardFlips[cardId] = !this.gameState.stackCardFlips[cardId];
+
+        this.broadcast({
+            type: 'stackCardFlipped',
+            cardId: cardId,
+            isFlipped: this.gameState.stackCardFlips[cardId],
+            stackCardFlips: this.gameState.stackCardFlips
+        });
+    }
+
+    handleFlipTrophy(data, sender) {
+        if (!this.gameState.gameStarted) return;
+
+        const trophyId = data.trophyId;
+        // Toggle state
+        this.gameState.trophyFlips[trophyId] = !this.gameState.trophyFlips[trophyId];
+
+        this.broadcast({
+            type: 'trophyFlipped',
+            trophyId: trophyId,
+            isFlipped: this.gameState.trophyFlips[trophyId],
+            trophyFlips: this.gameState.trophyFlips
+        });
+    }
+
     handleReset(sender) {
         // Any player can restart the game
         const existingPlayers = this.gameState.players.map(p => ({
@@ -553,8 +591,11 @@ export default class SpicyServer {
             deckCount: this.gameState.deck.length,
             worldsEndTriggered: this.gameState.worldsEndTriggered,
             stackCount: this.gameState.spicyStack.length,
+            stackCount: this.gameState.spicyStack.length,
             stack: this.gameState.spicyStack,
-            trophies: this.gameState.trophies
+            stackCardFlips: this.gameState.stackCardFlips,
+            trophies: this.gameState.trophies,
+            trophyFlips: this.gameState.trophyFlips
         };
     }
 }

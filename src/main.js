@@ -390,6 +390,16 @@ function handleServerMessage(data) {
             renderTrophies();
             break;
 
+        case 'stackCardFlipped':
+            state.stackCardFlips = data.stackCardFlips;
+            renderStack();
+            break;
+
+        case 'trophyFlipped':
+            state.trophyFlips = data.trophyFlips;
+            renderTrophies();
+            break;
+
         case 'worldsEndRevealed':
             // Just mark as triggered - deck is now blocked
             state.gameState.worldsEndTriggered = true;
@@ -435,6 +445,10 @@ function syncGameState(serverState) {
     state.gameState.stackCount = serverState.stackCount;
     state.gameState.stack = serverState.stack || [];
     state.gameState.trophies = serverState.trophies || [];
+
+    // Sync flip states
+    if (serverState.stackCardFlips) state.stackCardFlips = serverState.stackCardFlips;
+    if (serverState.trophyFlips) state.trophyFlips = serverState.trophyFlips;
 }
 
 function calculateScore(pointsZone) {
@@ -558,8 +572,12 @@ function renderStack() {
 }
 
 function flipStackCard(cardId) {
-    state.stackCardFlips[cardId] = !state.stackCardFlips[cardId];
-    renderStack();
+    if (state.socket && state.gameState.gameStarted) {
+        state.socket.send(JSON.stringify({
+            type: 'flipStackCard',
+            cardId: cardId
+        }));
+    }
 }
 
 function renderTrophies() {
@@ -567,7 +585,7 @@ function renderTrophies() {
     elements.trophies.innerHTML = trophies.map(t => {
         // Check if trophy has been taken (from server or local state)
         const isTaken = t.taken || state.trophiesTaken[t.id] || false;
-        // Check local flip state - default is false (showing front)
+        // Check flip state (from server or local)
         const isFlipped = state.trophyFlips[t.id] || false;
         // Front = trophy.png, Back = trophy back.png
         const imgSrc = isFlipped ? '/cards/trophy back.png' : '/cards/trophy.png';
@@ -594,8 +612,12 @@ function renderTrophies() {
 }
 
 function flipTrophy(trophyId) {
-    state.trophyFlips[trophyId] = !state.trophyFlips[trophyId];
-    renderTrophies();
+    if (state.socket && state.gameState.gameStarted) {
+        state.socket.send(JSON.stringify({
+            type: 'flipTrophy',
+            trophyId: trophyId
+        }));
+    }
 }
 
 function renderSpiceItUp() {
