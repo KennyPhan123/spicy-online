@@ -445,6 +445,19 @@ export default class SpicyServer {
         if (data.fromStack && this.gameState.spicyStack.length > 0) {
             const cards = this.gameState.spicyStack.splice(0);
             player.pointsZone.push(...cards);
+        } else if (data.cardId) {
+            // Move specific card from hand to points
+            const cardIndex = player.hand.findIndex(c => c.id === data.cardId);
+            if (cardIndex !== -1) {
+                const card = player.hand.splice(cardIndex, 1)[0];
+                player.pointsZone.push(card);
+
+                // Send updated hand to player
+                sender.send(JSON.stringify({
+                    type: 'cardPlayed', // Reuse cardPlayed to update hand
+                    myHand: player.hand
+                }));
+            }
         }
 
         sender.send(JSON.stringify({
@@ -590,7 +603,12 @@ export default class SpicyServer {
             id: p.id,
             name: p.name,
             handCount: p.hand.length,
-            pointsCount: p.pointsZone.length
+            pointsCount: p.pointsZone.reduce((total, item) => {
+                if (item.type === 'trophy' || (item.id && item.id.startsWith('trophy'))) {
+                    return total + 10;
+                }
+                return total + 1;
+            }, 0)
         }));
     }
 

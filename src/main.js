@@ -1072,14 +1072,11 @@ function endDrag(x, y) {
                 cardId: cardData.id
             }));
         } else if (isOverPoints && cardData.id) {
-            // Move to points locally
-            const cardIndex = state.myHand.findIndex(c => c.id === cardData.id);
-            if (cardIndex !== -1) {
-                const removedCard = state.myHand.splice(cardIndex, 1)[0];
-                state.pointsZone.push(removedCard);
-                elements.pointsCount.textContent = calculateScore(state.pointsZone);
-                renderMyHand();
-            }
+            // Move to points - Send to server
+            state.socket?.send(JSON.stringify({
+                type: 'addToPoints',
+                cardId: cardData.id
+            }));
         }
     } else if (state.dragSource === 'stack') {
         if (isOverHand) {
