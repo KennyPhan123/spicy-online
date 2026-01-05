@@ -777,10 +777,13 @@ function getTouchDistance(touches) {
 }
 
 function updateWorldTransform() {
-    // Pan limits - prevent going too far off screen
-    const maxPan = 300;
-    state.pan.x = Math.max(-maxPan, Math.min(maxPan, state.pan.x));
-    state.pan.y = Math.max(-maxPan, Math.min(maxPan, state.pan.y));
+    // Pan limits - prevent going too far off screen (dynamic based on zoom)
+    // Board size is 1200x900. Allow panning to edge + a bit of margin
+    const maxPanX = (600 * state.zoom) + 150;
+    const maxPanY = (450 * state.zoom) + 150;
+
+    state.pan.x = Math.max(-maxPanX, Math.min(maxPanX, state.pan.x));
+    state.pan.y = Math.max(-maxPanY, Math.min(maxPanY, state.pan.y));
 
     const world = elements.gameWorld;
     world.style.transform = `translate(calc(-50% + ${state.pan.x}px), calc(-50% + ${state.pan.y}px)) scale(${state.zoom})`;
