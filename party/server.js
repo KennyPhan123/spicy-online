@@ -474,6 +474,13 @@ export default class SpicyServer {
         trophy.taken = true;
         trophy.takenBy = sender.id;
 
+        // Add to player's points zone so it persist
+        player.pointsZone.push({
+            id: trophy.id,
+            type: 'trophy',
+            image: 'trophy.png'
+        });
+
         this.broadcast({
             type: 'trophyTaken',
             trophyId: trophy.id,

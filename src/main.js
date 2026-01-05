@@ -1075,7 +1075,12 @@ function resetDragState() {
 
 function showPointsPopup() {
     elements.pointsCards.innerHTML = state.pointsZone.map(card => {
-        return `<div class="card-mini"><img src="/cards/${card.image}" alt="Card" draggable="false"></div>`;
+        // Show trophies face up, everything else (cards) face down
+        const imgSrc = (card.type === 'trophy')
+            ? `/cards/${card.image}`
+            : '/cards/back number.png';
+
+        return `<div class="card-mini"><img src="${imgSrc}" alt="Card" draggable="false"></div>`;
     }).join('') || '<p style="color: #777;">No cards yet</p>';
 
     elements.pointsPopup.classList.remove('hidden');
