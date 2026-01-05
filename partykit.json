@@ -1,0 +1,6 @@
+{
+    "name": "spicy-game-server",
+    "main": "party/server.js",
+    "compatibilityDate": "2026-01-04",
+    "serve": "./dist"
+}

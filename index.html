@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Spicy - Online Card Game</title>
+    <meta name="description" content="Play Spicy card game online with friends. A hot bluffing game for 2-6 players.">
+    <link rel="stylesheet" href="/src/styles.css">
+</head>
+
+<body>
+    <!-- Lobby Screen -->
+    <div id="lobby" class="screen active">
+        <div class="lobby-container">
+            <h1 class="game-title">SPICY</h1>
+            <p class="subtitle">A hot bluffing game - 2 to 6 players</p>
+
+            <!-- Main Menu -->
+            <div id="mainMenu" class="lobby-section">
+                <div class="menu-buttons">
+                    <button id="showCreate" class="btn btn-primary btn-large">Create Game</button>
+                    <button id="showJoin" class="btn btn-secondary btn-large">Join Game</button>
+                </div>
+            </div>
+
+            <!-- Create Game Form -->
+            <div id="createForm" class="lobby-section hidden">
+                <div class="form-card">
+                    <h3>Create New Game</h3>
+                    <div class="input-group">
+                        <label for="createName">Your Name</label>
+                        <input type="text" id="createName" placeholder="Enter your name" maxlength="12"
+                            autocomplete="off">
+                    </div>
+                    <button id="createRoom" class="btn btn-primary">Create Room</button>
+                    <button class="btn-link" id="backFromCreate">Back to menu</button>
+                </div>
+            </div>
+
+            <!-- Join Game Form -->
+            <div id="joinForm" class="lobby-section hidden">
+                <div class="form-card">
+                    <h3>Join Existing Game</h3>
+                    <div class="input-group">
+                        <label for="joinName">Your Name</label>
+                        <input type="text" id="joinName" placeholder="Enter your name" maxlength="12"
+                            autocomplete="off">
+                    </div>
+                    <div class="input-group">
+                        <label for="roomCode">Room Code (4 letters)</label>
+                        <input type="text" id="roomCode" placeholder="ABCD" maxlength="4" autocomplete="off"
+                            class="code-input">
+                    </div>
+                    <button id="joinRoom" class="btn btn-secondary">Join Room</button>
+                    <button class="btn-link" id="backFromJoin">Back to menu</button>
+                </div>
+            </div>
+
+            <!-- Room Info (after create/join) -->
+            <div id="roomInfo" class="room-info hidden">
+                <div class="code-display">
+                    <p class="code-label">Room Code</p>
+                    <div id="displayRoomCode" class="room-code-box"></div>
+                    <button id="copyCodeBtn" class="btn-copy">Tap to Copy</button>
+                </div>
+                <div class="players-section">
+                    <p>Players: <span id="playerCount">0</span>/6</p>
+                    <div id="playerList" class="player-list"></div>
+                </div>
+                <div class="spice-it-up-toggle">
+                    <label class="toggle-container" id="spiceItUpContainer">
+                        <input type="checkbox" id="spiceItUpCheck">
+                        <span class="toggle-label">Spice It Up Mode</span>
+                    </label>
+                </div>
+                <button id="startGame" class="btn btn-primary hidden">Start Game</button>
+                <p class="waiting-text">Waiting for host to start...</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Game Screen -->
+    <div id="game" class="screen">
+        <!-- Fixed Restart Button -->
+        <button id="restartButton" class="restart-button">Restart Game</button>
+
+        <div id="gameCanvas" class="game-canvas">
+            <div id="gameWorld" class="game-world">
+
+                <!-- Spice It Up Card Display (top left) -->
+                <div id="spiceItUpDisplay" class="spice-it-up-display hidden"></div>
+
+                <!-- Other Players' Hands (top) -->
+                <div id="otherPlayersArea" class="other-players-area"></div>
+
+                <!-- Center Area: Deck, Stack, Trophies -->
+                <div class="game-center">
+                    <!-- Draw Deck -->
+                    <div class="deck-area">
+                        <div id="deck" class="deck"></div>
+                        <div class="deck-label">Draw Deck: <span id="deckCount" class="deck-count">0</span></div>
+                        <div id="worldsEndIndicator" class="worlds-end-indicator hidden">World's End Near!</div>
+                    </div>
+
+                    <!-- Spicy Stack -->
+                    <div class="spicy-stack">
+                        <div id="stackContainer" class="stack-container"></div>
+                        <div class="stack-label">Spicy Stack: <span id="stackCount" class="stack-count">0</span></div>
+                        <button id="takeAllStackBtn" class="take-all-stack-btn">Take All to Points</button>
+                    </div>
+
+                    <!-- Trophy Area -->
+                    <div class="trophy-area">
+                        <div id="trophies" class="trophies"></div>
+                        <div class="trophy-label">Trophies</div>
+                    </div>
+                </div>
+
+                <!-- My Hand (bottom) -->
+                <div class="my-hand-area">
+                    <div id="myHand" class="my-hand"></div>
+                    <div id="myPlayerInfo" class="my-player-info"></div>
+                </div>
+
+                <!-- Points Button -->
+                <div id="pointsButton" class="points-button">
+                    <span class="points-icon">P</span>
+                    <span class="points-label">Points</span>
+                    <span id="pointsCount" class="points-count">0</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Points Viewer Popup -->
+    <div id="pointsPopup" class="popup hidden">
+        <div class="popup-content">
+            <h3>Your Points</h3>
+            <div id="pointsCards" class="points-cards"></div>
+            <button id="closePoints" class="btn btn-primary">Close</button>
+        </div>
+    </div>
+
+    <!-- Error Modal (global) -->
+    <div id="errorModal" class="modal hidden">
+        <div class="modal-content error-modal">
+            <h2>Error</h2>
+            <p id="errorMessage"></p>
+            <button id="errorOk" class="btn btn-primary">OK</button>
+        </div>
+    </div>
+
+    <!-- World's End Modal -->
+    <div id="worldsEndModal" class="modal hidden">
+        <div class="modal-content">
+            <h2>World's End!</h2>
+            <p>The World's End card has been revealed. The game ends now!</p>
+            <button id="worldsEndOk" class="btn btn-primary">Back to Lobby</button>
+        </div>
+    </div>
+
+    <!-- Restart Confirm Modal -->
+    <div id="restartModal" class="modal hidden">
+        <div class="modal-content">
+            <h2>Restart Game?</h2>
+            <p>Are you sure you want to restart the game? All progress will be lost.</p>
+            <div class="modal-buttons">
+                <button id="restartConfirm" class="btn btn-primary">Yes, Restart</button>
+                <button id="restartCancel" class="btn btn-secondary">Cancel</button>
+            </div>
+        </div>
+    </div>
+
+    <script type="module" src="/src/main.js"></script>
+</body>
+
+</html>
