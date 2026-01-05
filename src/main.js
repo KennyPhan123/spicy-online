@@ -396,6 +396,7 @@ function handleServerMessage(data) {
         case 'gameReset':
             syncGameState(data.state);
             state.pointsZone = [];
+            state.trophiesTaken = {};  // Clear trophy taken tracking
             elements.pointsCount.textContent = '0';
             if (elements.pointsCards) elements.pointsCards.innerHTML = '';
             elements.game.classList.remove('active');
