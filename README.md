@@ -112,4 +112,4 @@ This project is for educational and entertainment purposes.
 
 ## Live Demo
 
-Play online at: [https://spicy-game-server.kennyphan123.partykit.dev](https://spicy-game-server.kennyphan123.partykit.dev)
+Play online at: [https://spicy.kennyphan123.partykit.dev](https://spicy.kennyphan123.partykit.dev)
