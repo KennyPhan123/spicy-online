@@ -392,7 +392,9 @@ export default class SpicyServer {
             type: 'stackUpdated',
             stackCount: this.gameState.spicyStack.length,
             stack: this.gameState.spicyStack,
-            players: this.getPublicPlayers()
+            players: this.getPublicPlayers(),
+            lastActivePlayerId: this.gameState.lastActivePlayerId,
+            stackCardFlips: this.gameState.stackCardFlips
         });
     }
 
@@ -428,7 +430,9 @@ export default class SpicyServer {
             type: 'stackUpdated',
             stackCount: this.gameState.spicyStack.length,
             stack: this.gameState.spicyStack,
-            players: this.getPublicPlayers()
+            players: this.getPublicPlayers(),
+            lastActivePlayerId: this.gameState.lastActivePlayerId,
+            stackCardFlips: this.gameState.stackCardFlips
         });
     }
 
@@ -452,7 +456,9 @@ export default class SpicyServer {
             type: 'stackUpdated',
             stackCount: this.gameState.spicyStack.length,
             stack: this.gameState.spicyStack,
-            players: this.getPublicPlayers()
+            players: this.getPublicPlayers(),
+            lastActivePlayerId: this.gameState.lastActivePlayerId,
+            stackCardFlips: this.gameState.stackCardFlips
         });
     }
 

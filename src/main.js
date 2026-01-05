@@ -650,7 +650,7 @@ function renderOtherPlayers() {
 
         return `
             <div class="other-player" data-id="${p.id}">
-                <div class="other-player-name ${activeClass}">${p.name}</div>
+                <div class="other-player-name ${activeClass}">${p.name} (${p.handCount})</div>
                 <div class="other-player-hand">
                     ${Array(p.handCount).fill(0).map((_, i) => `
                         <div class="other-player-card">
@@ -670,7 +670,7 @@ function renderMyHand() {
     if (!state.myHand) return;
 
     // Update my info
-    elements.myPlayerInfo.textContent = `${state.playerName} (Me)`;
+    elements.myPlayerInfo.textContent = `${state.playerName} (${state.myHand.length})`;
 
     // Toggle active glow
     if (state.socket && state.socket.id === state.gameState.lastActivePlayerId) {
