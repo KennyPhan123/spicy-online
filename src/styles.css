@@ -50,9 +50,6 @@ body {
 img {
     -webkit-user-drag: none;
     pointer-events: none;
-    /* Fix potential aliasing/traces on scaling */
-    backface-visibility: hidden;
-    transform: translateZ(0);
 }
 
 /* === SCREENS === */
@@ -330,9 +327,6 @@ img {
     left: 50%;
     top: 50%;
     transform-origin: center center;
-    /* Fix rendering artifacts */
-    backface-visibility: hidden;
-    transform: translateZ(0);
     will-change: transform;
 }
 

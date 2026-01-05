@@ -721,7 +721,7 @@ function setupPanZoom() {
     canvas.addEventListener('wheel', (e) => {
         e.preventDefault();
         const delta = e.deltaY > 0 ? 0.95 : 1.05;
-        state.zoom = Math.min(Math.max(state.zoom * delta, 0.7), 1.5);
+        state.zoom = Math.min(Math.max(state.zoom * delta, 0.7), 3.0);
         updateWorldTransform();
     }, { passive: false });
 
@@ -759,7 +759,7 @@ function setupPanZoom() {
             e.preventDefault();
             const newDistance = getTouchDistance(e.touches);
             const scale = newDistance / initialDistance;
-            state.zoom = Math.min(Math.max(initialZoom * scale, 0.7), 1.5);
+            state.zoom = Math.min(Math.max(initialZoom * scale, 0.7), 3.0);
             updateWorldTransform();
         }
     }, { passive: false });
