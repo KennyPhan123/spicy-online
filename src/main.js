@@ -4,7 +4,7 @@ import PartySocket from 'partysocket';
 // Server host
 const PARTYKIT_HOST = window.location.hostname === 'localhost'
     ? 'localhost:1999'
-    : 'spicy-game-server.kennyphan123.partykit.dev';
+    : 'spicy.kennyphan123.partykit.dev';
 
 // Generate random 4-letter room code
 function generateRoomCode(length = 4) {
