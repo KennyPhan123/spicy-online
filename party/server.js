@@ -521,7 +521,8 @@ export default class SpicyServer {
             trophyId: trophy.id,
             takenBy: sender.id,
             takenByName: player.name,
-            trophies: this.gameState.trophies
+            trophies: this.gameState.trophies,
+            players: this.getPublicPlayers()
         });
     }
 

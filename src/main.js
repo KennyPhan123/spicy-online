@@ -391,6 +391,10 @@ function handleServerMessage(data) {
                     state.trophiesTaken[t.id] = true;
                 }
             });
+            if (data.players) {
+                state.gameState.players = data.players;
+                renderOtherPlayers();
+            }
             renderTrophies();
             break;
 
