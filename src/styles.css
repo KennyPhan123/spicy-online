@@ -598,7 +598,15 @@ img {
     border-radius: 8px;
     border: 1px solid var(--border-light);
     color: var(--text-dark);
+    color: var(--text-dark);
     box-shadow: none;
+    transition: box-shadow 0.3s ease;
+}
+
+.active-glow {
+    box-shadow: 0 0 15px 5px var(--pastel-yellow), 0 0 5px 2px var(--pastel-orange) !important;
+    border-color: var(--pastel-orange) !important;
+    z-index: 10;
 }
 
 .my-hand {

@@ -86,7 +86,9 @@ export default class SpicyServer {
             hostId: null,
             gameStarted: false,
             spiceItUpMode: false,
+            spiceItUpMode: false,
             spiceItUpCards: [],
+            lastActivePlayerId: null, // Track who played last on the stack (for glow)
 
             // Deck - World's End is inserted INTO the deck at a specific position
             deck: [],
@@ -373,6 +375,12 @@ export default class SpicyServer {
             playedByName: player.name
         });
 
+        // Update active player glow
+        this.gameState.lastActivePlayerId = sender.id;
+
+        // RESET FLIP STATE: Card played to stack is always face down
+        delete this.gameState.stackCardFlips[data.cardId];
+
         // Send updated hand to player
         sender.send(JSON.stringify({
             type: 'cardPlayed',
@@ -586,6 +594,7 @@ export default class SpicyServer {
             phase: this.gameState.phase,
             hostId: this.gameState.hostId,
             gameStarted: this.gameState.gameStarted,
+            lastActivePlayerId: this.gameState.lastActivePlayerId,
             spiceItUpMode: this.gameState.spiceItUpMode,
             spiceItUpCards: this.gameState.spiceItUpCards,
             deckCount: this.gameState.deck.length,

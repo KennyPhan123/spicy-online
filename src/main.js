@@ -438,6 +438,7 @@ function syncGameState(serverState) {
     state.gameState.phase = serverState.phase;
     state.gameState.hostId = serverState.hostId;
     state.gameState.gameStarted = serverState.gameStarted;
+    state.gameState.lastActivePlayerId = serverState.lastActivePlayerId;
     state.gameState.spiceItUpMode = serverState.spiceItUpMode;
     state.gameState.spiceItUpCards = serverState.spiceItUpCards || [];
     state.gameState.deckCount = serverState.deckCount;
@@ -633,23 +634,45 @@ function renderSpiceItUp() {
 function renderOtherPlayers() {
     const otherPlayers = state.gameState.players.filter(p => p.id !== state.playerId);
 
-    elements.otherPlayersArea.innerHTML = otherPlayers.map(p => {
-        let handHtml = '';
-        const cardCount = p.handCount || 0;
-        for (let i = 0; i < cardCount; i++) {
-            handHtml += `<div class="other-player-card"><img src="/cards/back number.png" alt="Card" draggable="false"></div>`;
-        }
-        return `<div class="other-player">
-            <div class="other-player-name">${p.name} (${cardCount})</div>
-            <div class="other-player-hand">${handHtml}</div>
-        </div>`;
+    elements.otherPlayersArea.innerHTML = otherPlayers.map((p, index) => {
+        // Calculate position around the circle
+        // ... (existing position logic if any, simplified here since CSS handles layout via flex/gap for now or basic index mapping)
+
+        // Use fixed positions if needed, but current CSS uses flex gap
+        // Just render them in order
+
+        const isFlipped = state.spiceItUpMode ? 'flipped' : '';
+        const activeClass = (p.id === state.gameState.lastActivePlayerId) ? 'active-glow' : '';
+
+        return `
+            <div class="other-player" data-id="${p.id}">
+                <div class="other-player-name ${activeClass}">${p.name}</div>
+                <div class="other-player-hand">
+                    ${Array(p.handCount).fill(0).map((_, i) => `
+                        <div class="other-player-card">
+                            <img src="/cards/back number.png" alt="Card Back">
+                        </div>
+                    `).join('')}
+                </div>
+                <div class="other-player-info" style="font-size: 0.75rem; color: #777; margin-top: 4px;">
+                    Points: ${p.pointsCount}
+                </div>
+            </div>
+        `;
     }).join('');
 }
 
 function renderMyHand() {
-    // Update player info (Name + Count)
-    if (elements.myPlayerInfo) {
-        elements.myPlayerInfo.textContent = `${state.playerName} (${state.myHand.length})`;
+    if (!state.myHand) return;
+
+    // Update my info
+    elements.myPlayerInfo.textContent = `${state.playerName} (Me)`;
+
+    // Toggle active glow
+    if (state.socket && state.socket.id === state.gameState.lastActivePlayerId) {
+        elements.myPlayerInfo.classList.add('active-glow');
+    } else {
+        elements.myPlayerInfo.classList.remove('active-glow');
     }
 
     elements.myHand.innerHTML = state.myHand.map((card, index) => {
