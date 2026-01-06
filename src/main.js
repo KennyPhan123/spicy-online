@@ -560,50 +560,7 @@ function renderDeck() {
     }
 }
 
-function renderStack() {
-    // Show stack with CARD BACKS (face down) unless flipped
-    const stack = state.gameState.stack;
 
-    if (stack.length > 0) {
-        const showCount = Math.min(stack.length, 4);
-        let html = '';
-
-        for (let i = 0; i < showCount; i++) {
-            const stackIndex = stack.length - showCount + i;
-            const card = stack[stackIndex];
-            const offset = (showCount - 1 - i) * 3;
-            const isFlipped = state.stackCardFlips[card.id] || false;
-            const imgSrc = isFlipped ? `/cards/${card.image}` : '/cards/back number.png';
-
-            html += `<div class="stack-card-layer" style="top: ${offset}px; left: ${offset}px; z-index: ${i + 1};" 
-                data-stack-index="${stackIndex}" 
-                data-card-id="${card.id}"
-                data-flipped="${isFlipped}">
-                <img src="${imgSrc}" alt="Card" draggable="false">
-            </div>`;
-        }
-        elements.stackContainer.innerHTML = html;
-
-        // Add double-click/tap handlers for flipping
-        elements.stackContainer.querySelectorAll('.stack-card-layer').forEach(el => {
-            el.addEventListener('dblclick', () => flipStackCard(el.dataset.cardId));
-            // For mobile double-tap
-            let lastTap = 0;
-            el.addEventListener('touchend', (e) => {
-                const now = Date.now();
-                if (now - lastTap < 300) {
-                    flipStackCard(el.dataset.cardId);
-                    e.preventDefault();
-                }
-                lastTap = now;
-            });
-        });
-    } else {
-        elements.stackContainer.innerHTML = '';
-    }
-
-    elements.stackCount.textContent = stack.length;
-}
 
 function flipStackCard(cardId) {
     if (state.socket && state.gameState.gameStarted) {
@@ -675,11 +632,12 @@ function renderOtherPlayers() {
         // Just render them in order
 
         const isFlipped = state.spiceItUpMode ? 'flipped' : '';
-        const activeClass = (p.id === state.gameState.lastActivePlayerId) ? 'active-glow' : '';
+        const isActive = false;
+        const activeClass = '';
 
         return `
             <div class="other-player" data-id="${p.id}">
-                <div class="other-player-name ${activeClass}">${p.name} (${p.handCount})</div>
+                <div class="other-player-name">${p.name} (${p.handCount})</div>
                 <div class="other-player-hand">
                     ${Array(p.handCount).fill(0).map((_, i) => `
                         <div class="other-player-card">
@@ -701,12 +659,8 @@ function renderMyHand() {
     // Update my info
     elements.myPlayerInfo.textContent = `${state.playerName} (${state.myHand.length})`;
 
-    // Toggle active glow
-    if (state.socket && state.socket.id === state.gameState.lastActivePlayerId) {
-        elements.myPlayerInfo.classList.add('active-glow');
-    } else {
-        elements.myPlayerInfo.classList.remove('active-glow');
-    }
+    // Toggle active glow - REMOVED
+    elements.myPlayerInfo.classList.remove('active-glow');
 
     elements.myHand.innerHTML = state.myHand.map((card, index) => {
         return `<div class="hand-card" data-card-id="${card.id}" data-card-index="${index}">
