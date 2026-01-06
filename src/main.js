@@ -278,7 +278,7 @@ function renderStack() {
 
     // Update stack count and active player name
     const count = state.gameState.stackCount || 0;
-    let labelText = `Spicy Stack: ${count}`;
+    let labelText = `${count}`;
 
     if (count > 0 && state.gameState.lastActivePlayerId) {
         // Find player name
