@@ -273,6 +273,31 @@ function showRoomInfo() {
     elements.joinForm.classList.add('hidden');
 }
 
+function renderStack() {
+    if (!state.gameState) return;
+
+    // Update stack count and active player name
+    const count = state.gameState.stackCount || 0;
+    let labelText = `Spicy Stack: ${count}`;
+
+    if (count > 0 && state.gameState.lastActivePlayerId) {
+        // Find player name
+        let activePlayerName = 'Unknown';
+        if (state.gameState.lastActivePlayerId === state.socket.id) {
+            activePlayerName = state.playerName;
+        } else {
+            const player = state.gameState.players.find(p => p.id === state.gameState.lastActivePlayerId);
+            if (player) activePlayerName = player.name;
+        }
+        labelText += ` (${activePlayerName})`;
+    }
+
+    elements.stackCount.textContent = labelText;
+
+    // Update stack visual
+    elements.stackContainer.innerHTML = '';
+}
+
 function updatePlayerList() {
     const players = state.gameState.players;
     elements.playerCount.textContent = players.length;
