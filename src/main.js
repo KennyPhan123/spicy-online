@@ -278,6 +278,7 @@ function renderStack() {
 
     // Update stack count and active player name
     const count = state.gameState.stackCount || 0;
+    const stack = state.gameState.stack || [];
     let labelText = `${count}`;
 
     if (count > 0 && state.gameState.lastActivePlayerId) {
@@ -295,7 +296,43 @@ function renderStack() {
     elements.stackCount.textContent = labelText;
 
     // Update stack visual
-    elements.stackContainer.innerHTML = '';
+    if (stack.length > 0) {
+        const showCount = Math.min(stack.length, 4);
+        let html = '';
+
+        for (let i = 0; i < showCount; i++) {
+            const stackIndex = stack.length - showCount + i;
+            const card = stack[stackIndex];
+            const offset = (showCount - 1 - i) * 3;
+            const isFlipped = state.stackCardFlips[card.id] || false;
+            const imgSrc = isFlipped ? `/cards/${card.image}` : '/cards/back number.png';
+
+            html += `<div class="stack-card-layer" style="top: ${offset}px; left: ${offset}px; z-index: ${i + 1};" 
+                data-stack-index="${stackIndex}" 
+                data-card-id="${card.id}"
+                data-flipped="${isFlipped}">
+                <img src="${imgSrc}" alt="Card" draggable="false">
+            </div>`;
+        }
+        elements.stackContainer.innerHTML = html;
+
+        // Add double-click/tap handlers for flipping
+        elements.stackContainer.querySelectorAll('.stack-card-layer').forEach(el => {
+            el.addEventListener('dblclick', () => flipStackCard(el.dataset.cardId));
+            // For mobile double-tap
+            let lastTap = 0;
+            el.addEventListener('touchend', (e) => {
+                const now = Date.now();
+                if (now - lastTap < 300) {
+                    flipStackCard(el.dataset.cardId);
+                    e.preventDefault();
+                }
+                lastTap = now;
+            });
+        });
+    } else {
+        elements.stackContainer.innerHTML = '';
+    }
 }
 
 function updatePlayerList() {
