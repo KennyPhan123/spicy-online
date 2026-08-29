@@ -811,12 +811,26 @@ function animateCard(startRect, endRect, imgSrc, delay = 0, onComplete = null) {
         return;
     }
 
+    const cx = window.innerWidth / 2;
+    const cy = window.innerHeight / 2;
+    
+    // Convert screen coordinates to game-world local coordinates
+    const toWorld = (r) => ({
+        left: (r.left - cx - state.pan.x) / state.zoom + 600,
+        top: (r.top - cy - state.pan.y) / state.zoom + 450,
+        width: r.width / state.zoom,
+        height: r.height / state.zoom
+    });
+
+    const localStart = toWorld(startRect);
+    const localEnd = toWorld(endRect);
+
     const clone = document.createElement('div');
-    clone.style.position = 'fixed';
-    clone.style.left = `${startRect.left}px`;
-    clone.style.top = `${startRect.top}px`;
-    clone.style.width = `${startRect.width}px`;
-    clone.style.height = `${startRect.height}px`;
+    clone.style.position = 'absolute';
+    clone.style.left = `${localStart.left}px`;
+    clone.style.top = `${localStart.top}px`;
+    clone.style.width = `${localStart.width}px`;
+    clone.style.height = `${localStart.height}px`;
     clone.style.margin = '0';
     clone.style.zIndex = '9999';
     clone.style.transition = 'none';
@@ -829,25 +843,24 @@ function animateCard(startRect, endRect, imgSrc, delay = 0, onComplete = null) {
     img.style.objectFit = 'cover';
     clone.appendChild(img);
     
-    // Add specific border radius to match spicy cards
     clone.style.borderRadius = '8px';
     clone.style.overflow = 'hidden';
 
-    document.body.appendChild(clone);
+    elements.gameWorld.appendChild(clone);
     
     // Force layout
     clone.getBoundingClientRect();
     
     setTimeout(() => {
         clone.style.transition = 'all 0.4s cubic-bezier(0.34, 1.56, 0.64, 1)';
-        clone.style.left = `${endRect.left}px`;
-        clone.style.top = `${endRect.top}px`;
-        clone.style.width = `${endRect.width}px`;
-        clone.style.height = `${endRect.height}px`;
+        clone.style.left = `${localEnd.left}px`;
+        clone.style.top = `${localEnd.top}px`;
+        clone.style.width = `${localEnd.width}px`;
+        clone.style.height = `${localEnd.height}px`;
         
         setTimeout(() => {
-            if (document.body.contains(clone)) {
-                document.body.removeChild(clone);
+            if (elements.gameWorld.contains(clone)) {
+                elements.gameWorld.removeChild(clone);
             }
             if (onComplete) onComplete();
         }, 400);
