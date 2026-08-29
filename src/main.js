@@ -814,11 +814,13 @@ function animateCard(startRect, endRect, imgSrc, delay = 0, onComplete = null) {
     const canvasRect = elements.gameCanvas.getBoundingClientRect();
     const cx = canvasRect.left + canvasRect.width / 2;
     const cy = canvasRect.top + canvasRect.height / 2;
+    const gwHalfW = elements.gameWorld.offsetWidth / 2;
+    const gwHalfH = elements.gameWorld.offsetHeight / 2;
     
     // Convert screen coordinates to game-world local coordinates
     const toWorld = (r) => ({
-        left: (r.left - cx - state.pan.x) / state.zoom + 600,
-        top: (r.top - cy - state.pan.y) / state.zoom + 450,
+        left: (r.left - cx - state.pan.x) / state.zoom + gwHalfW,
+        top: (r.top - cy - state.pan.y) / state.zoom + gwHalfH,
         width: r.width / state.zoom,
         height: r.height / state.zoom
     });
@@ -1054,9 +1056,10 @@ function getTouchDistance(touches) {
 
 function updateWorldTransform() {
     // Pan limits - prevent going too far off screen (dynamic based on zoom)
-    // Board size is 1200x900. Allow panning to edge + a bit of margin
-    const maxPanX = (600 * state.zoom) + 150;
-    const maxPanY = (450 * state.zoom) + 150;
+    const gwHalfW = elements.gameWorld.offsetWidth / 2;
+    const gwHalfH = elements.gameWorld.offsetHeight / 2;
+    const maxPanX = (gwHalfW * state.zoom) + 150;
+    const maxPanY = (gwHalfH * state.zoom) + 150;
 
     state.pan.x = Math.max(-maxPanX, Math.min(maxPanX, state.pan.x));
     state.pan.y = Math.max(-maxPanY, Math.min(maxPanY, state.pan.y));
