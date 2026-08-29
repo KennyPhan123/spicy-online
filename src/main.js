@@ -811,8 +811,9 @@ function animateCard(startRect, endRect, imgSrc, delay = 0, onComplete = null) {
         return;
     }
 
-    const cx = window.innerWidth / 2;
-    const cy = window.innerHeight / 2;
+    const canvasRect = elements.gameCanvas.getBoundingClientRect();
+    const cx = canvasRect.left + canvasRect.width / 2;
+    const cy = canvasRect.top + canvasRect.height / 2;
     
     // Convert screen coordinates to game-world local coordinates
     const toWorld = (r) => ({
