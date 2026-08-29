@@ -421,26 +421,22 @@ function handleServerMessage(data) {
                 playSound('deal', 0.5);
                 const deckEl = elements.deck;
                 const topDeckCard = deckEl.querySelector('.deck-card:last-child');
-                const startRect = topDeckCard ? topDeckCard.getBoundingClientRect() : deckEl.getBoundingClientRect();
+                const startRect = getCardRect(topDeckCard || deckEl);
                 
                 let endRect;
+                let targetEl = null;
                 if (data.drawnBy === state.playerId) {
-                    endRect = elements.myHandArea.getBoundingClientRect();
+                    targetEl = elements.myHand.querySelector('.hand-card:last-child');
+                    endRect = getCardRect(targetEl || elements.myHandArea);
                 } else {
                     const otherPlayerEl = document.querySelector(`.other-player[data-id="${data.drawnBy}"]`);
-                    if (otherPlayerEl) endRect = otherPlayerEl.getBoundingClientRect();
+                    if (otherPlayerEl) endRect = getCardRect(otherPlayerEl);
                 }
                 
                 if (startRect && endRect) {
                     renderDeck();
                     renderOtherPlayers();
-                    // Don't render my hand here, cardPlayed already rendered it? Wait, cardDrawn didn't!
-                    // Wait, cardDrawn message arrives FIRST? Let's check server.js
                     
-                    let targetEl = null;
-                    if (data.drawnBy === state.playerId) {
-                        targetEl = elements.myHand.querySelector('.hand-card:last-child');
-                    }
                     if (targetEl) targetEl.style.opacity = '0';
                     
                     animateCard(startRect, endRect, '/cards/back number.png', 0, () => {
@@ -476,14 +472,14 @@ function handleServerMessage(data) {
             if (data.stackCount > previousStackCount && data.lastActivePlayerId) {
                 playSound('flip');
                 const stackEl = elements.stackContainer;
-                const endRect = stackEl.getBoundingClientRect();
+                const endRect = getCardRect(stackEl);
                 
                 let startRect;
                 if (data.lastActivePlayerId === state.playerId) {
-                    startRect = elements.myHandArea.getBoundingClientRect();
+                    startRect = getCardRect(elements.myHandArea);
                 } else {
                     const otherPlayerEl = document.querySelector(`.other-player[data-id="${data.lastActivePlayerId}"]`);
-                    if (otherPlayerEl) startRect = otherPlayerEl.getBoundingClientRect();
+                    if (otherPlayerEl) startRect = getCardRect(otherPlayerEl);
                 }
                 
                 if (startRect && endRect) {
@@ -507,14 +503,16 @@ function handleServerMessage(data) {
             else if (data.takenBy && data.stackCount < previousStackCount && !data.addedToPointsBy) {
                 playSound('deal');
                 const stackEl = elements.stackContainer;
-                const startRect = stackEl.getBoundingClientRect();
+                const startRect = getCardRect(stackEl);
                 
                 let endRect;
+                let targetEl = null;
                 if (data.takenBy === state.playerId) {
-                    endRect = elements.myHandArea.getBoundingClientRect();
+                    targetEl = elements.myHand.querySelector('.hand-card:last-child');
+                    endRect = getCardRect(targetEl || elements.myHandArea);
                 } else {
                     const otherPlayerEl = document.querySelector(`.other-player[data-id="${data.takenBy}"]`);
-                    if (otherPlayerEl) endRect = otherPlayerEl.getBoundingClientRect();
+                    if (otherPlayerEl) endRect = getCardRect(otherPlayerEl);
                 }
                 
                 if (startRect && endRect) {
@@ -522,10 +520,6 @@ function handleServerMessage(data) {
                     renderOtherPlayers();
                     renderMyHand();
                     
-                    let targetEl = null;
-                    if (data.takenBy === state.playerId) {
-                        targetEl = elements.myHand.querySelector('.hand-card:last-child');
-                    }
                     if (targetEl) targetEl.style.opacity = '0';
                     
                     animateCard(startRect, endRect, '/cards/back number.png', 0, () => {
@@ -541,17 +535,17 @@ function handleServerMessage(data) {
             else if (data.addedToPointsBy && previousStackCount > 0) {
                 playSound('deal');
                 const stackEl = elements.stackContainer;
-                const startRect = stackEl.getBoundingClientRect();
+                const startRect = getCardRect(stackEl);
                 
                 let endRect;
                 if (data.addedToPointsBy === state.playerId) {
-                    endRect = elements.pointsButton.getBoundingClientRect();
+                    endRect = getCardRect(elements.pointsButton);
                 } else {
                     const otherPlayerEl = document.querySelector(`.other-player[data-id="${data.addedToPointsBy}"]`);
                     // Use their points text area
                     if (otherPlayerEl) {
                         const infoEl = otherPlayerEl.querySelector('.other-player-info');
-                        endRect = infoEl ? infoEl.getBoundingClientRect() : otherPlayerEl.getBoundingClientRect();
+                        endRect = getCardRect(infoEl || otherPlayerEl);
                     }
                 }
                 
@@ -608,16 +602,16 @@ function handleServerMessage(data) {
             if (data.takenBy) {
                 playSound('flip');
                 const trophyEl = document.querySelector(`.trophy-card[data-trophy-id="${data.trophyId}"]`);
-                const startRect = trophyEl ? trophyEl.getBoundingClientRect() : elements.trophies.getBoundingClientRect();
+                const startRect = getCardRect(trophyEl || elements.trophies);
                 
                 let endRect;
                 if (data.takenBy === state.playerId) {
-                    endRect = elements.pointsButton.getBoundingClientRect();
+                    endRect = getCardRect(elements.pointsButton);
                 } else {
                     const otherPlayerEl = document.querySelector(`.other-player[data-id="${data.takenBy}"]`);
                     if (otherPlayerEl) {
                         const infoEl = otherPlayerEl.querySelector('.other-player-info');
-                        endRect = infoEl ? infoEl.getBoundingClientRect() : otherPlayerEl.getBoundingClientRect();
+                        endRect = getCardRect(infoEl || otherPlayerEl);
                     }
                 }
                 
@@ -787,6 +781,28 @@ function flipStackCard(cardId) {
             cardId: cardId
         }));
     }
+}
+
+function getCardRect(element) {
+    if (!element) return null;
+    const r = element.getBoundingClientRect();
+    
+    if (element.classList.contains('hand-card') || 
+        element.classList.contains('stack-card-layer') || 
+        element.classList.contains('deck-card') ||
+        element.classList.contains('trophy-card')) {
+        return r;
+    }
+    
+    const cardW = 90 * state.zoom;
+    const cardH = 140 * state.zoom;
+    
+    return {
+        left: r.left + r.width / 2 - cardW / 2,
+        top: r.top + r.height / 2 - cardH / 2,
+        width: cardW,
+        height: cardH
+    };
 }
 
 function animateCard(startRect, endRect, imgSrc, delay = 0, onComplete = null) {
