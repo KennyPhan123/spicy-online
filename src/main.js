@@ -790,12 +790,18 @@ function getCardRect(element) {
     if (element.classList.contains('hand-card') || 
         element.classList.contains('stack-card-layer') || 
         element.classList.contains('deck-card') ||
-        element.classList.contains('trophy-card')) {
+        element.classList.contains('trophy-card') ||
+        element.classList.contains('stack-container') ||
+        element.classList.contains('deck')) {
         return r;
     }
     
-    const cardW = 90 * state.zoom;
-    const cardH = 140 * state.zoom;
+    const rootStyles = getComputedStyle(document.documentElement);
+    const baseW = parseFloat(rootStyles.getPropertyValue('--card-width')) || 90;
+    const baseH = parseFloat(rootStyles.getPropertyValue('--card-height')) || 140;
+    
+    const cardW = baseW * state.zoom;
+    const cardH = baseH * state.zoom;
     
     return {
         left: r.left + r.width / 2 - cardW / 2,
