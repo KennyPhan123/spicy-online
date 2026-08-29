@@ -354,7 +354,8 @@ export default class SpicyServer {
         this.broadcast({
             type: 'deckUpdated',
             deckCount: this.gameState.deck.length,
-            players: this.getPublicPlayers()
+            players: this.getPublicPlayers(),
+            drawnBy: sender.id
         });
     }
 
@@ -432,7 +433,8 @@ export default class SpicyServer {
             stack: this.gameState.spicyStack,
             players: this.getPublicPlayers(),
             lastActivePlayerId: this.gameState.lastActivePlayerId,
-            stackCardFlips: this.gameState.stackCardFlips
+            stackCardFlips: this.gameState.stackCardFlips,
+            takenBy: sender.id
         });
     }
 
@@ -471,7 +473,8 @@ export default class SpicyServer {
             stack: this.gameState.spicyStack,
             players: this.getPublicPlayers(),
             lastActivePlayerId: this.gameState.lastActivePlayerId,
-            stackCardFlips: this.gameState.stackCardFlips
+            stackCardFlips: this.gameState.stackCardFlips,
+            addedToPointsBy: sender.id
         });
     }
 

@@ -1,5 +1,5 @@
-// Main entry point for Spicy Card Game - Sandbox Mode with Pan/Zoom
 import PartySocket from 'partysocket';
+import { initAudio, playSound } from './audio.js';
 
 // Server host
 const PARTYKIT_HOST = window.location.hostname === 'localhost'
@@ -226,6 +226,7 @@ function copyRoomCode() {
 }
 
 function connectToRoom() {
+    initAudio();
     state.socket = new PartySocket({
         host: PARTYKIT_HOST,
         room: state.roomCode
@@ -411,29 +412,175 @@ function handleServerMessage(data) {
             renderMyHand();
             break;
 
-        case 'deckUpdated':
+        case 'deckUpdated': {
+            const previousDeckCount = state.gameState.deckCount;
             state.gameState.deckCount = data.deckCount;
             if (data.players) state.gameState.players = data.players;
-            renderDeck();
-            renderOtherPlayers();
+            
+            if (data.drawnBy && data.deckCount < previousDeckCount) {
+                playSound('deal', 0.5);
+                const deckEl = elements.deck;
+                const topDeckCard = deckEl.querySelector('.deck-card:last-child');
+                const startRect = topDeckCard ? topDeckCard.getBoundingClientRect() : deckEl.getBoundingClientRect();
+                
+                let endRect;
+                if (data.drawnBy === state.playerId) {
+                    endRect = elements.myHandArea.getBoundingClientRect();
+                } else {
+                    const otherPlayerEl = document.querySelector(`.other-player[data-id="${data.drawnBy}"]`);
+                    if (otherPlayerEl) endRect = otherPlayerEl.getBoundingClientRect();
+                }
+                
+                if (startRect && endRect) {
+                    renderDeck();
+                    renderOtherPlayers();
+                    // Don't render my hand here, cardPlayed already rendered it? Wait, cardDrawn didn't!
+                    // Wait, cardDrawn message arrives FIRST? Let's check server.js
+                    
+                    let targetEl = null;
+                    if (data.drawnBy === state.playerId) {
+                        targetEl = elements.myHand.querySelector('.hand-card:last-child');
+                    }
+                    if (targetEl) targetEl.style.opacity = '0';
+                    
+                    animateCard(startRect, endRect, '/cards/back number.png', 0, () => {
+                        if (targetEl) targetEl.style.opacity = '1';
+                    });
+                } else {
+                    renderDeck();
+                    renderOtherPlayers();
+                }
+            } else {
+                renderDeck();
+                renderOtherPlayers();
+            }
             break;
+        }
 
         case 'cardPlayed':
             state.myHand = data.myHand;
             renderMyHand();
             break;
 
-        case 'stackUpdated':
+        case 'stackUpdated': {
+            const previousStackCount = state.gameState.stackCount || 0;
+            const previousStack = state.gameState.stack ? [...state.gameState.stack] : [];
+            
             state.gameState.stackCount = data.stackCount;
             state.gameState.stack = data.stack || [];
             if (data.players) state.gameState.players = data.players;
             if (data.lastActivePlayerId !== undefined) state.gameState.lastActivePlayerId = data.lastActivePlayerId;
             if (data.stackCardFlips) state.stackCardFlips = data.stackCardFlips;
-            renderStack();
-            renderOtherPlayers();
-            // Also re-render my hand to show active glow if it's me
-            renderMyHand();
+            
+            // Check if card was played (stack increased)
+            if (data.stackCount > previousStackCount && data.lastActivePlayerId) {
+                playSound('flip');
+                const stackEl = elements.stackContainer;
+                const endRect = stackEl.getBoundingClientRect();
+                
+                let startRect;
+                if (data.lastActivePlayerId === state.playerId) {
+                    startRect = elements.myHandArea.getBoundingClientRect();
+                } else {
+                    const otherPlayerEl = document.querySelector(`.other-player[data-id="${data.lastActivePlayerId}"]`);
+                    if (otherPlayerEl) startRect = otherPlayerEl.getBoundingClientRect();
+                }
+                
+                if (startRect && endRect) {
+                    renderStack();
+                    renderOtherPlayers();
+                    renderMyHand();
+                    
+                    const newCardEl = elements.stackContainer.querySelector('.stack-card-layer:last-child');
+                    if (newCardEl) newCardEl.style.opacity = '0';
+                    
+                    animateCard(startRect, endRect, '/cards/back number.png', 0, () => {
+                        if (newCardEl) newCardEl.style.opacity = '1';
+                    });
+                } else {
+                    renderStack();
+                    renderOtherPlayers();
+                    renderMyHand();
+                }
+            } 
+            // Check if card was taken from stack to hand
+            else if (data.takenBy && data.stackCount < previousStackCount && !data.addedToPointsBy) {
+                playSound('deal');
+                const stackEl = elements.stackContainer;
+                const startRect = stackEl.getBoundingClientRect();
+                
+                let endRect;
+                if (data.takenBy === state.playerId) {
+                    endRect = elements.myHandArea.getBoundingClientRect();
+                } else {
+                    const otherPlayerEl = document.querySelector(`.other-player[data-id="${data.takenBy}"]`);
+                    if (otherPlayerEl) endRect = otherPlayerEl.getBoundingClientRect();
+                }
+                
+                if (startRect && endRect) {
+                    renderStack();
+                    renderOtherPlayers();
+                    renderMyHand();
+                    
+                    let targetEl = null;
+                    if (data.takenBy === state.playerId) {
+                        targetEl = elements.myHand.querySelector('.hand-card:last-child');
+                    }
+                    if (targetEl) targetEl.style.opacity = '0';
+                    
+                    animateCard(startRect, endRect, '/cards/back number.png', 0, () => {
+                        if (targetEl) targetEl.style.opacity = '1';
+                    });
+                } else {
+                    renderStack();
+                    renderOtherPlayers();
+                    renderMyHand();
+                }
+            }
+            // Check if cards were added to points (stack decreased to 0 usually, but can be partial if logic changes)
+            else if (data.addedToPointsBy && previousStackCount > 0) {
+                playSound('deal');
+                const stackEl = elements.stackContainer;
+                const startRect = stackEl.getBoundingClientRect();
+                
+                let endRect;
+                if (data.addedToPointsBy === state.playerId) {
+                    endRect = elements.pointsButton.getBoundingClientRect();
+                } else {
+                    const otherPlayerEl = document.querySelector(`.other-player[data-id="${data.addedToPointsBy}"]`);
+                    // Use their points text area
+                    if (otherPlayerEl) {
+                        const infoEl = otherPlayerEl.querySelector('.other-player-info');
+                        endRect = infoEl ? infoEl.getBoundingClientRect() : otherPlayerEl.getBoundingClientRect();
+                    }
+                }
+                
+                if (startRect && endRect) {
+                    // Animate consecutively
+                    for (let i = 0; i < previousStackCount; i++) {
+                        const delay = i * 100;
+                        const card = previousStack[i];
+                        const isFlipped = state.stackCardFlips[card.id];
+                        const imgSrc = isFlipped ? `/cards/${card.image}` : '/cards/back number.png';
+                        animateCard(startRect, endRect, imgSrc, delay);
+                    }
+                    setTimeout(() => {
+                        renderStack();
+                        renderOtherPlayers();
+                        renderMyHand();
+                    }, previousStackCount * 100 + 400);
+                } else {
+                    renderStack();
+                    renderOtherPlayers();
+                    renderMyHand();
+                }
+            } else {
+                renderStack();
+                renderOtherPlayers();
+                renderMyHand();
+            }
             break;
+        }
 
         case 'pointsUpdated':
             state.pointsZone = data.pointsZone;
@@ -445,9 +592,10 @@ function handleServerMessage(data) {
             renderTrophies();
             break;
 
-        case 'trophyTaken':
+        case 'trophyTaken': {
+            // Find which trophy was taken
+            const trophy = data.trophies.find(t => t.id === data.trophyId);
             state.gameState.trophies = data.trophies;
-            // Update local trophiesTaken from server state
             data.trophies.forEach(t => {
                 if (t.taken) {
                     state.trophiesTaken[t.id] = true;
@@ -455,10 +603,43 @@ function handleServerMessage(data) {
             });
             if (data.players) {
                 state.gameState.players = data.players;
-                renderOtherPlayers();
             }
-            renderTrophies();
+            
+            if (data.takenBy) {
+                playSound('flip');
+                const trophyEl = document.querySelector(`.trophy-card[data-trophy-id="${data.trophyId}"]`);
+                const startRect = trophyEl ? trophyEl.getBoundingClientRect() : elements.trophies.getBoundingClientRect();
+                
+                let endRect;
+                if (data.takenBy === state.playerId) {
+                    endRect = elements.pointsButton.getBoundingClientRect();
+                } else {
+                    const otherPlayerEl = document.querySelector(`.other-player[data-id="${data.takenBy}"]`);
+                    if (otherPlayerEl) {
+                        const infoEl = otherPlayerEl.querySelector('.other-player-info');
+                        endRect = infoEl ? infoEl.getBoundingClientRect() : otherPlayerEl.getBoundingClientRect();
+                    }
+                }
+                
+                if (startRect && endRect) {
+                    renderOtherPlayers();
+                    renderTrophies();
+                    
+                    const isFlipped = state.trophyFlips[data.trophyId];
+                    const imgSrc = isFlipped ? '/cards/trophy back.png' : '/cards/trophy.png';
+                    animateCard(startRect, endRect, imgSrc, 0, () => {
+                        // Animation complete
+                    });
+                } else {
+                    renderOtherPlayers();
+                    renderTrophies();
+                }
+            } else {
+                renderOtherPlayers();
+                renderTrophies();
+            }
             break;
+        }
 
         case 'stackCardFlipped':
             state.stackCardFlips = data.stackCardFlips;
@@ -606,6 +787,55 @@ function flipStackCard(cardId) {
             cardId: cardId
         }));
     }
+}
+
+function animateCard(startRect, endRect, imgSrc, delay = 0, onComplete = null) {
+    if (!startRect || !endRect) {
+        if (onComplete) onComplete();
+        return;
+    }
+
+    const clone = document.createElement('div');
+    clone.style.position = 'fixed';
+    clone.style.left = `${startRect.left}px`;
+    clone.style.top = `${startRect.top}px`;
+    clone.style.width = `${startRect.width}px`;
+    clone.style.height = `${startRect.height}px`;
+    clone.style.margin = '0';
+    clone.style.zIndex = '9999';
+    clone.style.transition = 'none';
+    clone.style.pointerEvents = 'none';
+    
+    const img = document.createElement('img');
+    img.src = imgSrc;
+    img.style.width = '100%';
+    img.style.height = '100%';
+    img.style.objectFit = 'cover';
+    clone.appendChild(img);
+    
+    // Add specific border radius to match spicy cards
+    clone.style.borderRadius = '8px';
+    clone.style.overflow = 'hidden';
+
+    document.body.appendChild(clone);
+    
+    // Force layout
+    clone.getBoundingClientRect();
+    
+    setTimeout(() => {
+        clone.style.transition = 'all 0.4s cubic-bezier(0.34, 1.56, 0.64, 1)';
+        clone.style.left = `${endRect.left}px`;
+        clone.style.top = `${endRect.top}px`;
+        clone.style.width = `${endRect.width}px`;
+        clone.style.height = `${endRect.height}px`;
+        
+        setTimeout(() => {
+            if (document.body.contains(clone)) {
+                document.body.removeChild(clone);
+            }
+            if (onComplete) onComplete();
+        }, 400);
+    }, delay);
 }
 
 function renderTrophies() {
