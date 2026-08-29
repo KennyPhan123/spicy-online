@@ -11,8 +11,9 @@ Spicy is a hot bluffing card game for 2-6 players. This online version allows pl
 - Real-time multiplayer gameplay using WebSockets
 - Room-based system with 4-letter room codes
 - Support for 2-6 players per game
-- Spice It Up mode toggle (visual only - variant rules not yet implemented)
 - Interactive drag-and-drop card mechanics
+- Smooth card animations that adapt correctly to all screen sizes
+- Immersive sound effects for card dealing and flipping
 - Pan and zoom controls for optimal viewing
 - Trophy system with 10-point scoring
 - World's End card mechanic
@@ -77,11 +78,10 @@ npx partykit deploy
 
 1. Create a new game or join an existing room with a 4-letter code
 2. Wait for at least 2 players to join
-3. The host can optionally toggle "Spice It Up" mode (note: variant rules are not yet implemented - this only displays a random Spice It Up card)
-4. Start the game and play cards by dragging them to the spicy stack
-5. Double-click/tap cards in the stack to flip and reveal them (for challenges)
-6. Challenge other players or collect trophies to win
-7. Score points by collecting cards (1 point each) and trophies (10 points each)
+3. Start the game and play cards by dragging them to the spicy stack
+4. Double-click/tap cards in the stack to flip and reveal them (for challenges)
+5. Challenge other players or collect trophies to win
+6. Score points by collecting cards (1 point each) and trophies (10 points each)
 
 ## Game Controls
 
@@ -96,11 +96,13 @@ npx partykit deploy
 spicy-online/
 ├── src/
 │   ├── main.js        # Client-side game logic
+│   ├── audio.js       # Audio player module
 │   └── styles.css     # Game styling
 ├── party/
 │   └── server.js      # PartyKit server logic
 ├── public/
-│   └── cards/         # Card images
+│   ├── cards/         # Card images
+│   └── sounds/        # Sound effects
 ├── index.html         # Main HTML file
 ├── package.json
 └── partykit.json      # PartyKit configuration
