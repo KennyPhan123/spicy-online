@@ -200,11 +200,7 @@ function setupLobbyHandlers() {
 
     document.getElementById('copyCodeBtn')?.addEventListener('click', copyRoomCode);
 
-    elements.spiceItUpCheck.addEventListener('change', () => {
-        if (state.socket && state.isHost) {
-            state.socket.send(JSON.stringify({ type: 'toggleSpiceItUp' }));
-        }
-    });
+    // Removed spiceItUp
 }
 
 function copyRoomCode() {
@@ -350,8 +346,8 @@ function updatePlayerList() {
     state.isHost = state.gameState.hostId === state.playerId;
 
     if (state.isHost) {
-        elements.spiceItUpContainer.style.pointerEvents = 'auto';
-        elements.spiceItUpContainer.style.opacity = '1';
+        elements.spiceItUpContainer?.style.setProperty('pointer-events', 'auto');
+        elements.spiceItUpContainer?.style.setProperty('opacity', '1');
 
         if (players.length >= 2) {
             elements.startGame.classList.remove('hidden');
@@ -362,8 +358,8 @@ function updatePlayerList() {
             elements.waitingText.classList.remove('hidden');
         }
     } else {
-        elements.spiceItUpContainer.style.pointerEvents = 'none';
-        elements.spiceItUpContainer.style.opacity = '0.6';
+        elements.spiceItUpContainer?.style.setProperty('pointer-events', 'none');
+        elements.spiceItUpContainer?.style.setProperty('opacity', '0.6');
         elements.startGame.classList.add('hidden');
         elements.waitingText.textContent = 'Waiting for host to start...';
         elements.waitingText.classList.remove('hidden');
@@ -398,7 +394,7 @@ function handleServerMessage(data) {
 
         case 'spiceItUpToggled':
             state.gameState.spiceItUpMode = data.spiceItUpMode;
-            elements.spiceItUpCheck.checked = data.spiceItUpMode;
+            if (elements.spiceItUpCheck) elements.spiceItUpCheck.checked = data.spiceItUpMode;
             break;
 
         case 'gameStarted':
@@ -636,11 +632,13 @@ function handleServerMessage(data) {
         }
 
         case 'stackCardFlipped':
+            playSound('flip');
             state.stackCardFlips = data.stackCardFlips;
             renderStack();
             break;
 
         case 'trophyFlipped':
+            playSound('flip');
             state.trophyFlips = data.trophyFlips;
             renderTrophies();
             break;
@@ -917,6 +915,7 @@ function flipTrophy(trophyId) {
 }
 
 function renderSpiceItUp() {
+    if (!elements.spiceItUpDisplay) return;
     if (state.gameState.spiceItUpMode && state.gameState.spiceItUpCards.length > 0) {
         const card = state.gameState.spiceItUpCards[0];
         elements.spiceItUpDisplay.innerHTML = `<img src="/cards/${card.image}" alt="${card.name}" draggable="false">`;
