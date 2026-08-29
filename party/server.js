@@ -86,7 +86,6 @@ export default class SpicyServer {
             hostId: null,
             gameStarted: false,
             spiceItUpMode: false,
-            spiceItUpMode: false,
             spiceItUpCards: [],
             lastActivePlayerId: null, // Track who played last on the stack (for glow)
 
@@ -627,7 +626,6 @@ export default class SpicyServer {
             spiceItUpCards: this.gameState.spiceItUpCards,
             deckCount: this.gameState.deck.length,
             worldsEndTriggered: this.gameState.worldsEndTriggered,
-            stackCount: this.gameState.spicyStack.length,
             stackCount: this.gameState.spicyStack.length,
             stack: this.gameState.spicyStack,
             stackCardFlips: this.gameState.stackCardFlips,
