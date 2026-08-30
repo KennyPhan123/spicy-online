@@ -443,9 +443,12 @@ export default class SpicyServer {
         const player = this.gameState.players.find(p => p.id === sender.id);
         if (!player) return;
 
+        let addedFromStack = false;
+
         if (data.fromStack && this.gameState.spicyStack.length > 0) {
             const cards = this.gameState.spicyStack.splice(0);
             player.pointsZone.push(...cards);
+            addedFromStack = true;
         } else if (data.cardId) {
             // Move specific card from hand to points
             const cardIndex = player.hand.findIndex(c => c.id === data.cardId);
@@ -473,7 +476,7 @@ export default class SpicyServer {
             players: this.getPublicPlayers(),
             lastActivePlayerId: this.gameState.lastActivePlayerId,
             stackCardFlips: this.gameState.stackCardFlips,
-            addedToPointsBy: sender.id
+            ...(addedFromStack && { addedToPointsBy: sender.id })
         });
     }
 
