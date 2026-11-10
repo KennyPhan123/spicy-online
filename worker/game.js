@@ -1,5 +1,4 @@
-// PartyKit Server for Spicy Card Game - Sandbox Mode
-// Handles room management and game state sync
+// Spicy card game rules and state. The Durable Object supplies room connections.
 
 // Fisher-Yates shuffle
 function shuffleArray(array) {
@@ -73,7 +72,7 @@ function createSpiceItUpCards() {
     ];
 }
 
-export default class SpicyServer {
+export default class SpicyGame {
     constructor(room) {
         this.room = room;
         this.gameState = this.createInitialState();
@@ -106,131 +105,66 @@ export default class SpicyServer {
         };
     }
 
-    onConnect(connection, ctx) {
-        connection.send(JSON.stringify({
-            type: 'state',
-            state: this.getPublicState(connection.id)
-        }));
-    }
-
-    onMessage(message, sender) {
-        try {
-            const data = JSON.parse(message);
-
-            switch (data.type) {
-                case 'join':
-                    this.handleJoin(data, sender);
-                    break;
-                case 'leave':
-                    this.handleLeave(sender);
-                    break;
-                case 'toggleSpiceItUp':
-                    this.handleToggleSpiceItUp(sender);
-                    break;
-                case 'start':
-                    this.handleStart(sender);
-                    break;
-                case 'drawCard':
-                    this.handleDrawCard(sender);
-                    break;
-                case 'playCard':
-                    this.handlePlayCard(data, sender);
-                    break;
-                case 'takeFromStack':
-                    this.handleTakeFromStack(data, sender);
-                    break;
-                case 'addToPoints':
-                    this.handleAddToPoints(data, sender);
-                    break;
-                case 'claimTrophy':
-                    this.handleClaimTrophy(data, sender);
-                    break;
-                case 'takeTrophy':
-                    this.handleTakeTrophy(data, sender);
-                    break;
-                case 'flipStackCard':
-                    this.handleFlipStackCard(data, sender);
-                    break;
-                case 'flipTrophy':
-                    this.handleFlipTrophy(data, sender);
-                    break;
-                case 'reset':
-                    this.handleReset(sender);
-                    break;
-                case 'ping':
-                    sender.send(JSON.stringify({ type: 'pong' }));
-                    break;
-            }
-        } catch (e) {
-            console.error('Message parse error:', e);
+    onMessage(data, sender) {
+        switch (data.type) {
+            case 'toggleSpiceItUp':
+                this.handleToggleSpiceItUp(sender);
+                break;
+            case 'start':
+                this.handleStart(sender);
+                break;
+            case 'drawCard':
+                this.handleDrawCard(sender);
+                break;
+            case 'playCard':
+                this.handlePlayCard(data, sender);
+                break;
+            case 'takeFromStack':
+                this.handleTakeFromStack(data, sender);
+                break;
+            case 'addToPoints':
+                this.handleAddToPoints(data, sender);
+                break;
+            case 'claimTrophy':
+                this.handleClaimTrophy(data, sender);
+                break;
+            case 'takeTrophy':
+                this.handleTakeTrophy(data, sender);
+                break;
+            case 'flipStackCard':
+                this.handleFlipStackCard(data, sender);
+                break;
+            case 'flipTrophy':
+                this.handleFlipTrophy(data, sender);
+                break;
+            case 'reset':
+                this.handleReset(sender);
+                break;
         }
-    }
-
-    onClose(connection) {
-        this.handleLeave(connection);
     }
 
     // === HANDLERS ===
 
-    handleJoin(data, sender) {
-        if (this.gameState.gameStarted) {
-            sender.send(JSON.stringify({ type: 'error', message: 'Game already started' }));
-            return;
-        }
+    handleLeave(playerId) {
+        const index = this.gameState.players.findIndex(p => p.id === playerId);
+        if (index === -1) return;
 
-        if (this.gameState.players.length >= 6) {
-            sender.send(JSON.stringify({ type: 'error', message: 'Room is full (max 6 players)' }));
-            return;
-        }
+        this.gameState.players.splice(index, 1);
 
-        const existingPlayer = this.gameState.players.find(p => p.id === sender.id);
-
-        if (!existingPlayer && this.gameState.players.length === 0 && !data.isCreator) {
-            sender.send(JSON.stringify({
-                type: 'error',
-                message: 'Room not found. Please check the room code and try again.'
-            }));
-            return;
-        }
-
-        if (!existingPlayer) {
-            const player = {
-                id: sender.id,
-                name: data.name,
-                hand: [],
-                pointsZone: []
-            };
-            this.gameState.players.push(player);
-        }
-
-        if (this.gameState.players.length === 1) {
-            this.gameState.hostId = sender.id;
+        if (this.gameState.players.length === 0) {
+            // A room code can be reused once its last player has left.
+            this.gameState = this.createInitialState();
+        } else if (this.gameState.hostId === playerId) {
+            this.gameState.hostId = (this.gameState.players.find(p => !p.disconnectedUntil)
+                || this.gameState.players[0]).id;
         }
 
         this.broadcast({
-            type: 'playerJoined',
-            player: this.gameState.players.find(p => p.id === sender.id),
+            type: 'playerLeft',
+            playerId,
             hostId: this.gameState.hostId,
             players: this.getPublicPlayers()
         });
-    }
-
-    handleLeave(sender) {
-        const index = this.gameState.players.findIndex(p => p.id === sender.id);
-        if (index !== -1) {
-            this.gameState.players.splice(index, 1);
-
-            if (this.gameState.hostId === sender.id && this.gameState.players.length > 0) {
-                this.gameState.hostId = this.gameState.players[0].id;
-            }
-
-            this.broadcast({
-                type: 'playerLeft',
-                playerId: sender.id,
-                hostId: this.gameState.hostId,
-                players: this.getPublicPlayers()
-            });
-        }
     }
 
     handleToggleSpiceItUp(sender) {
@@ -246,7 +180,11 @@ export default class SpicyServer {
     }
 
     handleStart(sender) {
-        if (sender.id !== this.gameState.hostId) return;
+        if (sender.id !== this.gameState.hostId || this.gameState.gameStarted) return;
+        if (this.gameState.players.some(p => p.disconnectedUntil)) {
+            sender.send(JSON.stringify({ type: 'error', message: 'Wait for disconnected players to reconnect.' }));
+            return;
+        }
         if (this.gameState.players.length < 2) {
             sender.send(JSON.stringify({ type: 'error', message: 'Need at least 2 players' }));
             return;
@@ -308,7 +246,7 @@ export default class SpicyServer {
             if (conn) {
                 conn.send(JSON.stringify({
                     type: 'gameStarted',
-                    state: this.getPublicState(player.id),
+                    state: this.getPublicState(),
                     myHand: player.hand
                 }));
             }
@@ -508,7 +446,7 @@ export default class SpicyServer {
         if (!player) return;
 
         const trophy = this.gameState.trophies.find(t => t.id === data.trophyId);
-        if (!trophy) return;
+        if (!trophy || trophy.taken) return;
 
         // Mark trophy as taken (hidden from table)
         trophy.taken = true;
@@ -520,6 +458,11 @@ export default class SpicyServer {
             type: 'trophy',
             image: 'trophy.png'
         });
+
+        sender.send(JSON.stringify({
+            type: 'pointsUpdated',
+            pointsZone: player.pointsZone
+        }));
 
         this.broadcast({
             type: 'trophyTaken',
@@ -535,6 +478,7 @@ export default class SpicyServer {
         if (!this.gameState.gameStarted) return;
 
         const cardId = data.cardId;
+        if (!this.gameState.spicyStack.some(card => card.id === cardId)) return;
         // Toggle state
         this.gameState.stackCardFlips[cardId] = !this.gameState.stackCardFlips[cardId];
 
@@ -550,6 +494,7 @@ export default class SpicyServer {
         if (!this.gameState.gameStarted) return;
 
         const trophyId = data.trophyId;
+        if (!this.gameState.trophies.some(trophy => trophy.id === trophyId)) return;
         // Toggle state
         this.gameState.trophyFlips[trophyId] = !this.gameState.trophyFlips[trophyId];
 
@@ -565,7 +510,12 @@ export default class SpicyServer {
         // Any player can restart the game
         const existingPlayers = this.gameState.players.map(p => ({
             id: p.id,
-            name: p.name
+            name: p.name,
+            sessionToken: p.sessionToken,
+            connectionId: p.connectionId,
+            disconnectedUntil: p.disconnectedUntil,
+            hand: [],
+            pointsZone: []
         }));
         const hostId = this.gameState.hostId;
         const spiceItUpMode = this.gameState.spiceItUpMode;
@@ -574,18 +524,11 @@ export default class SpicyServer {
         this.gameState.hostId = hostId;
         this.gameState.spiceItUpMode = spiceItUpMode;
 
-        for (const p of existingPlayers) {
-            this.gameState.players.push({
-                id: p.id,
-                name: p.name,
-                hand: [],
-                pointsZone: []
-            });
-        }
+        this.gameState.players = existingPlayers;
 
         this.broadcast({
             type: 'gameReset',
-            state: this.getPublicState(null)
+            state: this.getPublicState()
         });
     }
 
@@ -608,6 +551,7 @@ export default class SpicyServer {
         return this.gameState.players.map(p => ({
             id: p.id,
             name: p.name,
+            connected: !p.disconnectedUntil,
             handCount: p.hand.length,
             pointsCount: p.pointsZone.reduce((total, item) => {
                 if (item.type === 'trophy' || (item.id && item.id.startsWith('trophy'))) {
@@ -618,7 +562,7 @@ export default class SpicyServer {
         }));
     }
 
-    getPublicState(requesterId) {
+    getPublicState() {
         return {
             players: this.getPublicPlayers(),
             phase: this.gameState.phase,

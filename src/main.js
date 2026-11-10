@@ -1,10 +1,7 @@
-import PartySocket from 'partysocket';
 import { initAudio, playSound } from './audio.js';
 
-// Server host
-const PARTYKIT_HOST = window.location.hostname === 'localhost'
-    ? 'localhost:1999'
-    : 'spicy.kennyphan123.partykit.dev';
+// Room sockets always use the same origin as the page (local, preview or production).
+const SESSION_KEY = 'spicy-online-session';
 
 // Generate random 4-letter room code
 function generateRoomCode(length = 4) {
@@ -26,6 +23,13 @@ const state = {
     myHand: [],
     pointsZone: [],
     pingInterval: null,
+    reconnectTimer: null,
+    joinTimer: null,
+    reconnectAttempts: 0,
+    sessionToken: null,
+    roomIntent: null,
+    joined: false,
+    hasEverJoined: false,
 
     gameState: {
         players: [],
@@ -72,6 +76,7 @@ const state = {
 
 // DOM Elements
 const elements = {
+    connectionStatus: document.getElementById('connectionStatus'),
     lobby: document.getElementById('lobby'),
     game: document.getElementById('game'),
     mainMenu: document.getElementById('mainMenu'),
@@ -132,6 +137,7 @@ function init() {
     setupGameHandlers();
     setupPanZoom();
     setupDragHandlers();
+    restoreSession();
 
     // Prevent right-click context menu on images
     document.addEventListener('contextmenu', (e) => {
@@ -172,7 +178,7 @@ function setupLobbyHandlers() {
             showError('Please enter your name');
             return;
         }
-        if (!code || code.length !== 4) {
+        if (!/^[A-Z]{4}$/.test(code)) {
             showError('Please enter 4-letter room code');
             return;
         }
@@ -183,9 +189,7 @@ function setupLobbyHandlers() {
     });
 
     elements.startGame.addEventListener('click', () => {
-        if (state.socket && state.isHost) {
-            state.socket.send(JSON.stringify({ type: 'start' }));
-        }
+        if (state.isHost) sendMessage({ type: 'start' });
     });
 
     document.getElementById('backFromCreate')?.addEventListener('click', () => {
@@ -221,45 +225,197 @@ function copyRoomCode() {
     });
 }
 
-function connectToRoom() {
-    initAudio();
-    state.socket = new PartySocket({
-        host: PARTYKIT_HOST,
-        room: state.roomCode
-    });
+function setConnectionStatus(message) {
+    elements.connectionStatus.textContent = message;
+    elements.connectionStatus.classList.toggle('hidden', !message);
+}
 
-    state.socket.addEventListener('open', () => {
-        state.playerId = state.socket.id;
-        state.socket.send(JSON.stringify({
+function setConnectionPending(pending) {
+    elements.createRoom.disabled = pending;
+    elements.joinRoom.disabled = pending;
+    document.getElementById('backFromCreate').disabled = pending;
+    document.getElementById('backFromJoin').disabled = pending;
+}
+
+function saveSession() {
+    try {
+        sessionStorage.setItem(SESSION_KEY, JSON.stringify({
+            roomCode: state.roomCode,
+            playerName: state.playerName,
+            sessionToken: state.sessionToken
+        }));
+    } catch (error) {
+        // The game still works when browser storage is disabled; reload cannot resume it.
+        console.warn('Could not save the room session:', error);
+    }
+}
+
+function clearSession() {
+    try { sessionStorage.removeItem(SESSION_KEY); } catch { /* storage may be disabled */ }
+}
+
+function restoreSession() {
+    try {
+        const session = JSON.parse(sessionStorage.getItem(SESSION_KEY));
+        if (!session || !/^[A-Z]{4}$/.test(session.roomCode) ||
+            typeof session.playerName !== 'string' || typeof session.sessionToken !== 'string') return;
+        state.roomCode = session.roomCode;
+        state.playerName = session.playerName;
+        state.sessionToken = session.sessionToken;
+        state.roomIntent = 'resume';
+        state.hasEverJoined = true;
+        connectToRoom(true);
+    } catch {
+        clearSession();
+    }
+}
+
+function connectToRoom(resume = false) {
+    if (!resume) {
+        clearSession();
+        state.sessionToken = null;
+        state.playerId = null;
+        state.hasEverJoined = false;
+        state.roomIntent = state.isHost ? 'create' : 'join';
+        state.myHand = [];
+        state.pointsZone = [];
+        state.trophiesTaken = {};
+        state.trophyFlips = {};
+        state.stackCardFlips = {};
+    }
+    state.reconnectAttempts = 0;
+    setConnectionPending(true);
+    initAudio();
+    openRoomSocket();
+}
+
+function openRoomSocket() {
+    state.joined = false;
+    setConnectionStatus(state.hasEverJoined ? 'Reconnecting to the room…' : 'Connecting to the room…');
+
+    const url = new URL(`/api/rooms/${state.roomCode}`, window.location.href);
+    url.protocol = url.protocol === 'https:' ? 'wss:' : 'ws:';
+    let socket;
+    try {
+        socket = new WebSocket(url);
+    } catch (error) {
+        console.error('Connection error:', error);
+        scheduleReconnect();
+        return;
+    }
+    state.socket = socket;
+    // Bound both the WebSocket handshake and the server's join acknowledgement.
+    state.joinTimer = setTimeout(() => {
+        if (state.socket === socket && !state.joined) socket.close(4000, 'Connection timed out');
+    }, 10000);
+
+    socket.addEventListener('open', () => {
+        if (state.socket !== socket) return;
+        socket.send(JSON.stringify({
             type: 'join',
             name: state.playerName,
-            isCreator: state.isHost
+            isCreator: state.roomIntent === 'create',
+            ...(state.sessionToken && { sessionToken: state.sessionToken })
         }));
-
-        if (state.isHost) showRoomInfo();
 
         if (state.pingInterval) clearInterval(state.pingInterval);
         state.pingInterval = setInterval(() => {
-            if (state.socket?.readyState === WebSocket.OPEN) {
-                state.socket.send(JSON.stringify({ type: 'ping' }));
+            if (state.socket === socket && socket.readyState === WebSocket.OPEN) {
+                socket.send(JSON.stringify({ type: 'ping' }));
             }
         }, 30000);
     });
 
-    state.socket.addEventListener('message', (event) => {
-        handleServerMessage(JSON.parse(event.data));
+    socket.addEventListener('message', (event) => {
+        if (state.socket !== socket) return;
+        try {
+            handleServerMessage(JSON.parse(event.data));
+        } catch (error) {
+            console.error('Invalid server message:', error);
+        }
     });
 
-    state.socket.addEventListener('error', (error) => {
+    socket.addEventListener('error', (error) => {
         console.error('Connection error:', error);
     });
 
-    state.socket.addEventListener('close', () => {
-        if (state.pingInterval) {
-            clearInterval(state.pingInterval);
-            state.pingInterval = null;
+    socket.addEventListener('close', (event) => {
+        if (state.socket !== socket) return;
+        state.socket = null;
+        state.joined = false;
+        if (state.pingInterval) clearInterval(state.pingInterval);
+        if (state.joinTimer) clearTimeout(state.joinTimer);
+        state.pingInterval = null;
+        state.joinTimer = null;
+        if (event.code === 4001) {
+            endConnection('This session was opened in another tab.');
+        } else if (event.code === 1008) {
+            // Normally the server's error message arrives before the close frame.
+            endConnection('Could not join the room. Please try again.');
+        } else {
+            scheduleReconnect();
         }
     });
+}
+
+function scheduleReconnect() {
+    state.reconnectAttempts++;
+    // Keep retrying within the server's 60-second session grace period.
+    const maxAttempts = state.hasEverJoined ? 15 : 5;
+    if (state.reconnectAttempts >= maxAttempts) {
+        endConnection('Unable to connect to the game server. Please try again.');
+        return;
+    }
+    setConnectionStatus('Connection lost. Reconnecting…');
+    const delay = Math.min(1000 * 2 ** (state.reconnectAttempts - 1), 5000);
+    state.reconnectTimer = setTimeout(openRoomSocket, delay);
+}
+
+function closeGamePopups() {
+    elements.pointsPopup.classList.add('hidden');
+    elements.worldsEndModal.classList.add('hidden');
+    elements.restartModal.classList.add('hidden');
+}
+
+function endConnection(message) {
+    const showCreateForm = state.roomIntent === 'create' && !state.hasEverJoined;
+    const socket = state.socket;
+    state.socket = null;
+    state.joined = false;
+    if (socket) socket.close();
+    if (state.pingInterval) clearInterval(state.pingInterval);
+    if (state.reconnectTimer) clearTimeout(state.reconnectTimer);
+    if (state.joinTimer) clearTimeout(state.joinTimer);
+    state.pingInterval = null;
+    state.reconnectTimer = null;
+    state.joinTimer = null;
+    state.sessionToken = null;
+    state.playerId = null;
+    clearSession();
+    setConnectionPending(false);
+    setConnectionStatus('');
+    closeGamePopups();
+
+    elements.game.classList.remove('active');
+    elements.lobby.classList.add('active');
+    elements.roomInfo.classList.add('hidden');
+    elements.mainMenu.classList.add('hidden');
+    elements.createForm.classList.toggle('hidden', !showCreateForm);
+    elements.joinForm.classList.toggle('hidden', showCreateForm);
+    elements.joinName.value = state.playerName;
+    elements.roomCode.value = state.roomCode;
+    showError(message);
+}
+
+// Do not queue stale gameplay actions while the socket is reconnecting.
+function sendMessage(message) {
+    if (!state.joined || state.socket?.readyState !== WebSocket.OPEN) return false;
+    try {
+        state.socket.send(JSON.stringify(message));
+        return true;
+    } catch {
+        return false;
+    }
 }
 
 function showRoomInfo() {
@@ -281,7 +437,7 @@ function renderStack() {
     if (count > 0 && state.gameState.lastActivePlayerId) {
         // Find player name
         let activePlayerName = 'Unknown';
-        if (state.gameState.lastActivePlayerId === state.socket.id) {
+        if (state.gameState.lastActivePlayerId === state.playerId) {
             activePlayerName = state.playerName;
         } else {
             const player = state.gameState.players.find(p => p.id === state.gameState.lastActivePlayerId);
@@ -332,6 +488,12 @@ function renderStack() {
     }
 }
 
+function escapeHtml(value) {
+    return String(value).replace(/[&<>"']/g, character => ({
+        '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+    })[character]);
+}
+
 function updatePlayerList() {
     const players = state.gameState.players;
     elements.playerCount.textContent = players.length;
@@ -339,7 +501,8 @@ function updatePlayerList() {
     elements.playerList.innerHTML = players
         .map(p => {
             const isHost = p.id === state.gameState.hostId;
-            return `<span class="player-tag${isHost ? ' host' : ''}">${p.name}${isHost ? ' (Host)' : ''}</span>`;
+            const reconnecting = p.connected === false ? ' (Reconnecting)' : '';
+            return `<span class="player-tag${isHost ? ' host' : ''}">${escapeHtml(p.name)}${isHost ? ' (Host)' : ''}${reconnecting}</span>`;
         })
         .join('');
 
@@ -349,12 +512,14 @@ function updatePlayerList() {
         elements.spiceItUpContainer?.style.setProperty('pointer-events', 'auto');
         elements.spiceItUpContainer?.style.setProperty('opacity', '1');
 
-        if (players.length >= 2) {
+        if (players.length >= 2 && players.every(p => p.connected !== false)) {
             elements.startGame.classList.remove('hidden');
             elements.waitingText.classList.add('hidden');
         } else {
             elements.startGame.classList.add('hidden');
-            elements.waitingText.textContent = 'Need at least 2 players to start...';
+            elements.waitingText.textContent = players.some(p => p.connected === false)
+                ? 'Waiting for disconnected players to reconnect...'
+                : 'Need at least 2 players to start...';
             elements.waitingText.classList.remove('hidden');
         }
     } else {
@@ -368,26 +533,42 @@ function updatePlayerList() {
 
 // === SERVER MESSAGES ===
 function handleServerMessage(data) {
-    console.log('Server:', data.type, data);
-
     switch (data.type) {
-        case 'state':
+        case 'joined':
+            state.playerId = data.playerId;
+            state.sessionToken = data.sessionToken;
+            state.joined = true;
+            if (state.joinTimer) clearTimeout(state.joinTimer);
+            state.joinTimer = null;
+            state.hasEverJoined = true;
+            state.reconnectAttempts = 0;
+            setConnectionPending(false);
+            setConnectionStatus('');
             syncGameState(data.state);
-            if (data.state.gameStarted) startGame();
+            state.playerName = state.gameState.players.find(p => p.id === state.playerId)?.name || state.playerName;
+            saveSession();
+            state.myHand = data.myHand || [];
+            state.pointsZone = data.pointsZone || [];
+            state.trophiesTaken = Object.fromEntries(
+                state.gameState.trophies.filter(t => t.taken).map(t => [t.id, true])
+            );
+            elements.pointsCount.textContent = calculateScore(state.pointsZone);
+            updatePlayerList();
+            if (state.gameState.gameStarted) {
+                startGame();
+            } else {
+                closeGamePopups();
+                elements.game.classList.remove('active');
+                elements.lobby.classList.add('active');
+                showRoomInfo();
+            }
             break;
 
         case 'playerJoined':
-            state.gameState.players = data.players;
-            state.gameState.hostId = data.hostId;
-            if (data.hostId === state.playerId) state.isHost = true;
-            if (!state.isHost && data.player?.id === state.playerId) showRoomInfo();
-            updatePlayerList();
-            break;
-
         case 'playerLeft':
+        case 'playerConnectionChanged':
             state.gameState.players = data.players;
             state.gameState.hostId = data.hostId;
-            if (data.hostId === state.playerId) state.isHost = true;
             updatePlayerList();
             if (state.gameState.gameStarted) renderOtherPlayers();
             break;
@@ -651,11 +832,14 @@ function handleServerMessage(data) {
 
         case 'gameReset':
             syncGameState(data.state);
+            state.myHand = [];
             state.pointsZone = [];
             state.trophiesTaken = {};  // Clear trophy taken tracking
+            state.trophyFlips = {};
             state.stackCardFlips = {}; // Clear stack card flips
             elements.pointsCount.textContent = '0';
             if (elements.pointsCards) elements.pointsCards.innerHTML = '';
+            closeGamePopups();
             elements.game.classList.remove('active');
             elements.lobby.classList.add('active');
             elements.mainMenu.classList.add('hidden');
@@ -664,14 +848,8 @@ function handleServerMessage(data) {
             break;
 
         case 'error':
-            showError(data.message);
-            if (data.message.includes('Room not found')) {
-                state.socket?.close();
-                state.socket = null;
-                elements.roomInfo.classList.add('hidden');
-                elements.mainMenu.classList.add('hidden');
-                elements.joinForm.classList.remove('hidden');
-            }
+            if (data.fatal) endConnection(data.message);
+            else showError(data.message);
             break;
     }
 }
@@ -774,10 +952,10 @@ function renderDeck() {
 
 function flipStackCard(cardId) {
     if (state.socket && state.gameState.gameStarted) {
-        state.socket.send(JSON.stringify({
+        sendMessage({
             type: 'flipStackCard',
             cardId: cardId
-        }));
+        });
     }
 }
 
@@ -907,10 +1085,10 @@ function renderTrophies() {
 
 function flipTrophy(trophyId) {
     if (state.socket && state.gameState.gameStarted) {
-        state.socket.send(JSON.stringify({
+        sendMessage({
             type: 'flipTrophy',
             trophyId: trophyId
-        }));
+        });
     }
 }
 
@@ -941,7 +1119,7 @@ function renderOtherPlayers() {
 
         return `
             <div class="other-player" data-id="${p.id}">
-                <div class="other-player-name">${p.name} (${p.handCount})</div>
+                <div class="other-player-name">${escapeHtml(p.name)} (${p.handCount})${p.connected === false ? ' · Reconnecting' : ''}</div>
                 <div class="other-player-hand">
                     ${Array(p.handCount).fill(0).map((_, i) => `
                         <div class="other-player-card">
@@ -1086,7 +1264,7 @@ function setupGameHandlers() {
         // Block deck if World's End was triggered
         if (state.gameState.worldsEndTriggered) return;
         if (state.socket && state.gameState.gameStarted && !state.isDragging) {
-            state.socket.send(JSON.stringify({ type: 'drawCard' }));
+            sendMessage({ type: 'drawCard' });
         }
     });
 
@@ -1100,7 +1278,7 @@ function setupGameHandlers() {
 
     elements.worldsEndOk.addEventListener('click', () => {
         elements.worldsEndModal.classList.add('hidden');
-        state.socket?.send(JSON.stringify({ type: 'reset' }));
+        sendMessage({ type: 'reset' });
     });
 
     elements.errorOk.addEventListener('click', () => {
@@ -1117,7 +1295,7 @@ function setupGameHandlers() {
     // Restart modal confirm
     elements.restartConfirm.addEventListener('click', () => {
         elements.restartModal.classList.add('hidden');
-        state.socket?.send(JSON.stringify({ type: 'reset' }));
+        sendMessage({ type: 'reset' });
     });
 
     // Restart modal cancel
@@ -1128,10 +1306,10 @@ function setupGameHandlers() {
     // Take all stack to points button
     elements.takeAllStackBtn.addEventListener('click', () => {
         if (state.socket && state.gameState.gameStarted && state.gameState.stackCount > 0) {
-            state.socket.send(JSON.stringify({
+            sendMessage({
                 type: 'addToPoints',
                 fromStack: true
-            }));
+            });
         }
     });
 }
@@ -1358,45 +1536,35 @@ function endDrag(x, y) {
     if (state.dragSource === 'hand') {
         if (isOverStack && cardData.id) {
             // Play card to stack
-            state.socket?.send(JSON.stringify({
+            sendMessage({
                 type: 'playCard',
                 cardId: cardData.id
-            }));
+            });
         } else if (isOverPoints && cardData.id) {
             // Move to points - Send to server
-            state.socket?.send(JSON.stringify({
+            sendMessage({
                 type: 'addToPoints',
                 cardId: cardData.id
-            }));
+            });
         }
     } else if (state.dragSource === 'stack') {
         if (isOverHand) {
             // Take card from stack to hand
-            state.socket?.send(JSON.stringify({
-                type: 'takeFromStack'
-            }));
+            sendMessage({ type: 'takeFromStack' });
         } else if (isOverPoints) {
             // Move entire stack to points
-            state.socket?.send(JSON.stringify({
+            sendMessage({
                 type: 'addToPoints',
                 fromStack: true
-            }));
+            });
         }
     } else if (state.dragSource === 'trophy') {
         if (isOverPoints && cardData.trophyId) {
-            // Add trophy to local points zone 
-            state.pointsZone.push({
-                id: cardData.trophyId,
-                type: 'trophy',
-                image: 'trophy.png'
-            });
-            elements.pointsCount.textContent = calculateScore(state.pointsZone);
-
-            // Send to server so all players see trophy is taken
-            state.socket?.send(JSON.stringify({
+            // The server confirms the trophy and sends the updated points.
+            sendMessage({
                 type: 'takeTrophy',
                 trophyId: cardData.trophyId
-            }));
+            });
         }
     }
 }

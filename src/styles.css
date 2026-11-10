@@ -52,6 +52,23 @@ img {
     pointer-events: none;
 }
 
+.connection-status {
+    position: fixed;
+    z-index: 10001;
+    top: 12px;
+    left: 50%;
+    transform: translateX(-50%);
+    max-width: calc(100% - 32px);
+    padding: 10px 16px;
+    border: 1px solid var(--border-light);
+    border-radius: 8px;
+    background: white;
+    color: var(--text-dark);
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12);
+    font-size: 0.9rem;
+    text-align: center;
+}
+
 /* === SCREENS === */
 .screen {
     display: none;
